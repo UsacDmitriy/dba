@@ -59,8 +59,7 @@ from get_price_boundaries_by_discontinuity(1);
 create or replace function get_total_number_of_goods() returns bigint as
 $$
 begin
-    return sum(units_in_stock)
-        from products;
+    return sum(units_in_stock) from products;
 end;
 $$ language plpgsql;
 
@@ -70,8 +69,7 @@ select get_total_number_of_goods();
 create or replace function get_price_boundaries_by_discontinued() returns real as
 $$
 begin
-    return max(unit_price)
-        from products
+    return max(unit_price) from products
         where
     discontinued = 1;
 end;
@@ -195,31 +193,245 @@ begin
 end;
 $$ language plpgsql;
 
-select * from middle_price_with_options();
+select *
+from middle_price_with_options();
 
 
 create or replace function convert_temp(temperature real, to_celsius bool default true) returns real as
-    $$
-    declare
-        result_temp real;
-    begin
-        if to_celsius then
-            result_temp := (5.9/9.0)*(temperature-32);
-            else
-            result_temp := (9*temperature + (32*5))/9;
-        end if;
-        return  result_temp;
-    end;
+$$
+declare
+    result_temp real;
+begin
+    if to_celsius then
+        result_temp := (5.9 / 9.0) * (temperature - 32);
+    else
+        result_temp := (9 * temperature + (32 * 5)) / 9;
+    end if;
+    return result_temp;
+end;
 
-    $$ language plpgsql;
+$$ language plpgsql;
 
 select convert_temp(80);
 
+create or replace function fibonachi(n int) returns int as
+$$
+declare
+    counter int := 0;
+    i       int := 0;
+    j       int := 1;
+
+begin
+    if n < 0 then
+        return 0;
+    end if;
+
+    while counter <= n
+        loop
+            counter := counter + 1;
+            select j, i + j into i, j;
+        end loop;
+    return i;
+
+end;
+$$ language plpgsql;
 
 
+select fibonachi(20);
+
+do
+$$
+    begin
+        for counter in 1..50 by 2
+            loop
+                raise notice 'counter: %', counter;
+            end loop;
+    end
+$$;
+
+create or replace function return_ints() returns setof int as
+$$
+begin
+    return next 1;
+    return next 2;
+    return next 3;
+end;
+$$ LANGUAGE plpgsql;
+
+select return_ints();
+
+create or replace function after_chrismas_sale() returns setof products as
+$$
+declare
+    product record;
+begin
+    for product in select * from products
+        loop
+            if product.category_id in (1, 4, 8) then
+                product.unit_price := product.unit_price * 0.8;
+            elseif product.category_id in (2, 3, 7) then
+                product.unit_price := product.unit_price * 0.7;
+            else
+                product.unit_price := product.unit_price * 1.1;
+
+            end if;
+            return next product;
+        end loop;
+
+end;
+
+$$ language plpgsql;
+
+select *
+from after_chrismas_sale();
+
+create or replace function backup_customers() returns void as
+$$
+drop table if exists backuped_customers;
+    --     select into backup_customers
+--     from customers;
+
+    create table backuped_customers as
+    select *
+    from customers;
+
+    $$ language sql;
+
+select backup_customers();
+
+select *
+from backuped_customers;
+
+create or replace function get_avg_freight() returns float8 as
+$$
+select avg(freight)
+from orders;
+
+$$ language sql;
+
+select *
+from get_avg_freight();
 
 
+create or replace function random_between(low int, high int) returns int as
+$$
+begin
+    return floor(random() * (high - low + 1) + low);
+end;
+
+$$ language plpgsql;
+
+select random_between(1, 3)
+from generate_series(1, 5);
+
+create or replace function get_salary_boundaries_by_city(emp_city varchar, out min_salary numeric, max_salary numeric) as
+$$
+select min(salary), max(salary)
+from employees
+where city = emp_city;
 
 
+$$ language sql;
+
+alter table employees
+    add
+        column salary numeric;
+update employees
+set salary = floor(random_between(1, 100));
+
+select concat(last_name, ' ', first_name), salary
+from employees
+order by salary desc;
+------------------------------------
+
+drop function if exists correct_salary(upper_boundary numeric, correction_rate numeric);
+create or replace function correct_salary(upper_boundary numeric default 85, correction_rate numeric default 0.15)
+    returns table
+            (
+                last_name  text,
+                first_name text,
+                title      text,
+                salary     numeric
+            )
+as
+$$
+update employees
+set salary = salary + (salary * correction_rate)
+where salary <= upper_boundary
+returning last_name, first_name, title, salary;
+
+
+$$ language sql;
+
+select correct_salary();
+select salary
+from employees
+order by salary;
+---------------------------------
+
+create or replace function get_orders_by_shipping(ship_method int) returns setof orders as
+$$
+DECLARE
+    average numeric;
+    maximum numeric;
+    middle  numeric;
+
+begin
+    select max(freight)
+    into maximum
+    from orders
+    where ship_via = ship_method;
+
+    maximum := maximum - (maximum * 0.3);
+
+    select avg(freight)
+    into average
+    from orders
+    where ship_via = ship_method;
+
+    middle := (maximum + average) / 2;
+
+    return query select *
+                 from orders
+                 where freight < middle;
+
+
+end;
+
+$$ LANGUAGE plpgsql;
+
+select count(*)
+from get_orders_by_shipping(1);
+---------------------------------
+
+create or replace function should_increase_salary(cur_salary numeric, max_salary numeric default 80,
+                                                  min_salary numeric default 30,
+                                                  increase_rate numeric default 0.2) returns bool as
+$$
+declare
+    new_salary numeric;
+
+begin
+
+    if cur_salary >= max_salary or cur_salary >= min_salary
+    then
+        return false;
+    end if;
+
+    if cur_salary < min_salary then
+        new_salary := cur_salary + (cur_salary * increase_rate);
+    end if;
+    if new_salary > max_salary then
+        return false;
+    else
+        return true;
+    end if;
+
+end;
+$$ language plpgsql;
+
+select should_increase_salary(40, 80,30,0.2);
+select should_increase_salary(79, 81,80,0.2);
+select should_increase_salary(20, 80,30,0.2);
 
 
