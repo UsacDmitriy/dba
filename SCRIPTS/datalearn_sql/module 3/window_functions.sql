@@ -41,17 +41,15 @@ from (select s.id,
              s.department,
              s.gross_salary,
              max(s.gross_salary) over (partition by s.department) as max_gross_salary
-      from salary s
-     ) as max_s
+      from salary s) as max_s
 where max_s.max_gross_salary = max_s.gross_salary
 order by max_s.id;
 
 -- показать пропорцию зарплат
-with gross_by_department as (
-    select s.department,
-           sum(gross_salary) as department_gross_salary
-    from salary s
-    group by s.department)
+with gross_by_department as (select s.department,
+                                    sum(gross_salary) as department_gross_salary
+                             from salary s
+                             group by s.department)
 
 select s.id,
        s.first_name,
@@ -184,13 +182,11 @@ from streams;
 
 -- row number
 
-with our_rows as (
-    select artist,
-           week,
-           streams_millions,
-           row_number() over (order by streams_millions asc) as row_num
-    from streams
-)
+with our_rows as (select artist,
+                         week,
+                         streams_millions,
+                         row_number() over (order by streams_millions asc) as row_num
+                  from streams)
 
 select *
 from our_rows
@@ -230,3 +226,58 @@ select artist,
            order by streams_millions desc) as weekly_streams_group
 
 from streams;
+
+
+select *
+from state_climate;
+
+-- изменение климата в каждм штате в течении времени
+
+select state,
+       year,
+       tempf,
+       avg(tempf) over (partition by state order by year) as running_far
+
+from state_climate;
+
+select state,
+       year,
+       tempf,
+       first_value(tempf) over (partition by state order by tempf) as running_far
+
+from state_climate;
+
+select state,
+       year,
+       tempf,
+       last_value(tempf)
+       over (partition by state order by tempf range between unbounded preceding and unbounded following) as running_far
+
+from state_climate;
+
+select state,
+       year,
+       tempf,
+       rank() over (order by tempf) as change_tmp
+
+from state_climate;
+
+select state,
+       year,
+       tempf,
+       rank() over (partition by state order by tempf desc) as change_tmp
+
+from state_climate;
+
+select state,
+       year,
+       tempf,
+       ntile(4) over (partition by state order by tempf) as quartile,
+       ntile(5) over (partition by state order by tempf) as change_tmp
+from state_climate;
+
+
+
+
+
+
