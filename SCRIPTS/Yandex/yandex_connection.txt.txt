@@ -1,0 +1,23 @@
+Параметры подключения:
+
+
+{
+ "student_db_connection": {
+  "host": "rc1b-ljuhemk3tzvzv3e2.mdb.yandexcloud.net",
+  "port": 6432,
+  "dbname": "playground_sp0_20240309_77310be984",
+  "user": "de_sp0_20240309_77310be984",
+  "password": "306f25443a504aaca63242c9ac794d48"
+ }
+}
+
+
+База данных создана. Ваш секретный ключ: 4a3e3ab3f9494c2286bd5f3
+
+Для тестовой BA
+
+docker run --rm -d -p 7001:8000 -v s0-lessons:/s0-lessons --name de-sprint-0-server-local cr.yandex/crp1r8pht0n0gl25aug1/de-sprint-0:v2023-05-31-r1
+
+Для MetaBase
+
+docker run -d -p 3334:3000 --name=de-metabase metabase/metabase:v0.41.6
